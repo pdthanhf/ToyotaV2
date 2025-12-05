@@ -1,0 +1,7 @@
+<img 
+              src={logoToyota} 
+              alt="Toyota Logo" 
+              // 1. Bỏ 'drop-shadow' (thủ phạm tạo cái viền đen mờ)
+              // 2. Thêm 'mix-blend-lighten' để hòa trộn nền
+              className="h-10 w-auto object-contain transition-transform group-hover:scale-105 mix-blend-lighten" 
+            />

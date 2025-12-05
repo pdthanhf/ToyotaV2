@@ -1,0 +1,87 @@
+/* Optional: Các styles bổ sung cho App component */
+/* Tailwind đã xử lý hầu hết styling, file này có thể để trống hoặc thêm custom styles */
+
+.app-container {
+  min-height: 100vh;
+  background-color: #f3f4f6;
+}
+
+/* Animation cho fade in */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Loading spinner */
+.spinner {
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-left-color: #dc2626;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Custom scrollbar cho modal */
+.modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+/* Input và textarea styles */
+.form-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  outline: none;
+  transition: all 0.2s;
+}
+.form-input:focus {
+  border-color: #ef4444; /* red-500 */
+  box-shadow: 0 0 0 1px #ef4444;
+}
+.form-textarea {
+  @apply form-input; /* Dùng lại style của input */
+  resize: vertical;
+}
+.btn-secondary {
+  padding: 0.5rem;
+  background-color: #f3f4f6;
+  color: #4b5563;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  transition: all 0.2s;
+}
+.btn-secondary:hover {
+  background-color: #e5e7eb;
+  color: #1f2937;
+}
