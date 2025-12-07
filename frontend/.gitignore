@@ -1,4 +1,51 @@
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+.venv/
+env/
+ENV/
+.env
+*.env
+
+# Python build
+build/
+dist/
+*.egg-info/
+
+# === Node / React ===
 node_modules/
 frontend/node_modules/
-.venv/
-__pycache__/
+frontend/build/
+frontend/dist/
+
+# Log files
+*.log
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.cache/
+.cache/
+
+# Backup files
+*.bak
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Other
+__MACOSX/
