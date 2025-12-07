@@ -1,137 +1,90 @@
-import React, { useState } from 'react';
-import { Navbar } from './components/common/Navbar';
-import { ImageUpload } from './components/detector/ImageUpload';
-import { DetectionResult } from './components/detector/DetectionResult';
-import { AdminDashboard } from './components/admin/AdminDashboard';
-import { HistoryView } from './components/history/HistoryView';
-// 1. IMPORT COMPONENT DASHBOARD
-import { AnalyticsDashboard } from './components/AnalyticsDashboard'; 
-import { api } from './api';
-import { Camera } from 'lucide-react';
-import './App.css';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 
+// Import các trang
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import { AdminDashboard } from './components/admin/AdminDashboard'; // Đảm bảo đường dẫn này đúng với máy bạn
+
+// --- COMPONENT BẢO VỆ ROUTE (Authorization) ---
+const PrivateRoute = ({ children }) => {
+  // Kiểm tra token trong localStorage (được lưu lúc đăng nhập)
+  const token = localStorage.getItem('adminToken');
+  
+  if (!token) {
+    // Nếu không có token, đá về trang login ngay lập tức
+    return <Navigate to="/login" replace />;
+  }
+  
+  // Nếu có token, cho phép truy cập
+  return children;
+};
+
+// --- MAIN APP ---
 const App = () => {
-  // Thêm 'dashboard' vào danh sách các tab có thể active
-  const [activeTab, setActiveTab] = useState('detect');
-  const [processing, setProcessing] = useState(false);
-  const [detectionResult, setDetectionResult] = useState(null);
-  const [uploadedFile, setUploadedFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const [error, setError] = useState(null);
-
-  const handleImageUpload = async (file, objectUrl) => {
-    setProcessing(true);
-    setUploadedFile(file);
-    setPreviewUrl(objectUrl);
-    setDetectionResult(null);
-    setError(null);
-    
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-      
-      const result = await api.detect(formData);
-      
-      if (result.success) {
-        setDetectionResult(result);
-      } else {
-        setError('Không thể nhận diện xe trong ảnh này');
-      }
-    } catch (err) {
-      console.error("Detection error:", err);
-      setError(err.message || 'Lỗi khi nhận diện. Vui lòng thử lại.');
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleReset = () => {
-    setDetectionResult(null);
-    setUploadedFile(null);
-    setPreviewUrl(null);
-    setError(null);
-  };
-
   return (
-    <div className="min-h-screen bg-gray-100 font-sans text-gray-900">
-      {/* Navbar nhận props để điều khiển tab */}
-      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
-      
-      <main className="container mx-auto px-4 py-8">
-        {/* TAB: DETECT */}
-        {activeTab === 'detect' && (
-          <div className="max-w-6xl mx-auto space-y-8">
-            <div className="text-center space-y-2 mb-8">
-              <h1 className="text-3xl font-extrabold text-gray-900">
-                Hệ thống Nhận diện & Tra cứu Xe Toyota
-              </h1>
-              <p className="text-gray-500">
-                Tự động phân tích hình ảnh và cung cấp thông số kỹ thuật chi tiết
-              </p>
-            </div>
+    <Router>
+      <Routes>
+        {/* Route: Đăng nhập */}
+        <Route path="/login" element={<LoginPage />} />
 
-            {!detectionResult && (
-              <div className="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-sm">
-                <ImageUpload 
-                  onImageSelected={handleImageUpload} 
-                  isProcessing={processing} 
-                />
-                {error && (
-                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-red-800 text-sm">{error}</p>
-                  </div>
-                )}
+        {/* Route: Admin (Được bảo vệ) */}
+        <Route 
+          path="/admin" 
+          element={
+            <PrivateRoute>
+              {/* --- GIAO DIỆN ADMIN LAYOUT --- */}
+              <div className="min-h-screen bg-gray-50">
+                 
+                 {/* HEADER ADMIN */}
+                 <div className="bg-gray-900 text-white p-4 flex justify-between items-center shadow-md sticky top-0 z-50">
+                    {/* Logo / Tiêu đề */}
+                    <h1 className="font-bold text-xl flex items-center gap-2">
+                        <span className="bg-red-600 px-2 rounded">Toyota</span> Admin Panel
+                    </h1>
+
+                    {/* Khu vực nút bấm điều hướng */}
+                    <div className="flex gap-3">
+                        {/* 1. NÚT VỀ TRANG CHỦ (Khắc phục lỗi bị kẹt) */}
+                        <Link 
+                            to="/" 
+                            className="text-sm border border-gray-500 hover:bg-gray-800 text-gray-300 px-3 py-1 rounded transition flex items-center gap-1"
+                            title="Quay về giao diện người dùng mà không đăng xuất"
+                        >
+                            ⬅ Về Trang Khách
+                        </Link>
+
+                        {/* 2. NÚT ĐĂNG XUẤT */}
+                        <button 
+                            onClick={() => {
+                                // Xóa token xác thực
+                                localStorage.removeItem('adminToken');
+                                // Chuyển hướng cứng về trang login
+                                window.location.href = '/login';
+                            }} 
+                            className="text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition font-semibold"
+                        >
+                            Đăng xuất
+                        </button>
+                    </div>
+                 </div>
+                 
+                 {/* NỘI DUNG CHÍNH CỦA ADMIN (Dashboard) */}
+                 <div className="p-6">
+                    <AdminDashboard />
+                 </div>
               </div>
-            )}
+            </PrivateRoute>
+          } 
+        />
 
-            {detectionResult && (
-              <div className="animate-fade-in-up">
-                <DetectionResult 
-                  result={detectionResult} 
-                  filename={uploadedFile?.name} 
-                  originalPreview={previewUrl} 
-                  onReset={handleReset} 
-                />
-                <div className="mt-8 flex justify-center pb-8">
-                  <button 
-                    onClick={handleReset} 
-                    className="flex items-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg font-medium transition-transform hover:scale-105"
-                  >
-                    <Camera size={20} />
-                    <span>Nhận diện ảnh khác</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* TAB: HISTORY */}
-        {activeTab === 'history' && (
-          <div className="max-w-5xl mx-auto">
-            <HistoryView />
-          </div>
-        )}
-
-        {/* --- 2. THÊM TAB MỚI: DASHBOARD --- */}
-        {activeTab === 'dashboard' && (
-          <div className="max-w-7xl mx-auto">
-             <AnalyticsDashboard />
-          </div>
-        )}
-
-        {/* TAB: ADMIN */}
-        {activeTab === 'admin' && (
-          <div className="max-w-6xl mx-auto">
-            <AdminDashboard />
-          </div>
-        )}
-      </main>
-
-      <footer className="bg-gray-800 text-gray-400 py-6 text-center text-sm border-t border-gray-700">
-        <p>© 2025 Toyota Computer Vision Project. Powered by YOLOv8 & FastAPI</p>
-      </footer>
-    </div>
+        {/* Route: Trang chủ (Mặc định cho khách hàng) */}
+        <Route path="/" element={<HomePage />} />
+        
+        {/* Route 404: Bất kỳ đường dẫn lạ nào cũng về trang chủ */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Router>
   );
 };
 

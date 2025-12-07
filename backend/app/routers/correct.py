@@ -1,57 +1,75 @@
-from fastapi import APIRouter, HTTPException
-from typing import List
+from fastapi import APIRouter, HTTPException, BackgroundTasks
+from typing import Optional
 from bson import ObjectId
 from datetime import datetime
 
 from app.db.mongo import get_collection
 from app.models.correct import CorrectionRequest
+from app.utils.cloudinary_utils import CloudinaryService  # <-- Import Service vừa tạo
 
-router = APIRouter(prefix="/correct", tags=["Correction"])
+# Tạo router
+router = APIRouter(prefix="/correct", tags=["Correction & Active Learning"])
+
+# --- HELPER: Lấy public_id từ Cloudinary URL ---
+def extract_public_id(image_url: str) -> str:
+    """
+    Trích xuất public_id từ URL ảnh Cloudinary.
+    Ví dụ: .../upload/v1234/toyota_project/abc.jpg -> toyota_project/abc
+    """
+    try:
+        parts = image_url.split("/upload/")
+        if len(parts) > 1:
+            path = parts[1]
+            path_parts = path.split("/")
+            # Bỏ version (v1234/) nếu có
+            if path_parts[0].startswith("v"):
+                path_parts.pop(0)
+            filename = "/".join(path_parts)
+            return filename.rsplit(".", 1)[0] # Bỏ đuôi .jpg
+    except Exception:
+        pass
+    return ""
+
+# --- ENDPOINTS ---
 
 @router.post("/")
 async def submit_correction(correction: CorrectionRequest):
     """
-    Gửi correction cho kết quả nhận diện sai
-    
-    Args:
-        correction: Thông tin correction
-        
-    Returns:
-        Success status
+    API nhận feedback từ Frontend (Người dùng bấm Đúng/Sai)
     """
     try:
-        # Lưu correction vào collection riêng
         collection = get_collection("corrections")
         
+        # Chuyển đổi Pydantic model sang dict
         correction_dict = correction.model_dump()
-        correction_dict["timestamp"] = datetime.utcnow()
-        correction_dict["status"] = "pending"  # pending, approved, rejected
         
+        # Bổ sung các trường quản lý hệ thống
+        correction_dict["created_at"] = datetime.utcnow()
+        correction_dict["status"] = "pending"  # Trạng thái chờ Admin duyệt
+        correction_dict["public_id"] = extract_public_id(correction.image_url)
+        
+        # Lưu vào MongoDB
         result = await collection.insert_one(correction_dict)
         
         return {
             "success": True,
-            "message": "Correction submitted successfully",
-            "correction_id": str(result.inserted_id)
+            "message": "Đã ghi nhận phản hồi.",
+            "id": str(result.inserted_id)
         }
         
     except Exception as e:
+        print(f"Lỗi submit correction: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/")
 async def get_all_corrections(
-    status: str = None,
+    status: Optional[str] = None,
     skip: int = 0,
     limit: int = 50
 ):
     """
-    Lấy danh sách corrections
-    
-    Args:
-        status: Filter theo status (pending, approved, rejected)
-        skip: Pagination offset
-        limit: Số lượng records
+    Lấy danh sách feedback (Dùng cho Admin Dashboard)
     """
     try:
         collection = get_collection("corrections")
@@ -61,14 +79,19 @@ async def get_all_corrections(
             query["status"] = status
         
         corrections = []
-        async for correction in collection.find(query).sort("timestamp", -1).skip(skip).limit(limit):
+        # Sort theo thời gian mới nhất
+        cursor = collection.find(query).sort("created_at", -1).skip(skip).limit(limit)
+        
+        async for doc in cursor:
             corrections.append({
-                "_id": str(correction["_id"]),
-                "filename": correction.get("filename"),
-                "index": correction.get("index"),
-                "new_class_name": correction.get("new_class_name"),
-                "status": correction.get("status"),
-                "timestamp": correction.get("timestamp")
+                "id": str(doc["_id"]),
+                "image_url": doc.get("image_url"),
+                "predicted_label": doc.get("predicted_label"),
+                "actual_label": doc.get("actual_label"),
+                "confidence": doc.get("confidence"),
+                "is_correct": doc.get("is_correct"),
+                "status": doc.get("status"),
+                "created_at": doc.get("created_at")
             })
         
         return corrections
@@ -78,14 +101,24 @@ async def get_all_corrections(
 
 
 @router.put("/{correction_id}/approve")
-async def approve_correction(correction_id: str):
-    """Phê duyệt correction"""
+async def approve_correction(correction_id: str, background_tasks: BackgroundTasks):
+    """
+    Admin duyệt: 
+    1. Xác nhận dữ liệu này là đúng (status=approved).
+    2. Gọi Cloudinary gắn thẻ (tag) tên xe vào ảnh để chuẩn bị cho việc train sau này.
+    """
     if not ObjectId.is_valid(correction_id):
-        raise HTTPException(status_code=400, detail="Invalid correction ID")
+        raise HTTPException(status_code=400, detail="ID không hợp lệ")
     
     try:
         collection = get_collection("corrections")
         
+        # 1. Lấy thông tin bản ghi trước (để lấy public_id và label)
+        record = await collection.find_one({"_id": ObjectId(correction_id)})
+        if not record:
+            raise HTTPException(status_code=404, detail="Không tìm thấy bản ghi")
+
+        # 2. Update trạng thái trong DB
         result = await collection.update_one(
             {"_id": ObjectId(correction_id)},
             {"$set": {
@@ -94,10 +127,15 @@ async def approve_correction(correction_id: str):
             }}
         )
         
-        if result.modified_count == 0:
-            raise HTTPException(status_code=404, detail="Correction not found")
+        # 3. GỌI CLOUDINARY ĐỂ GẮN TAG (Chạy ngầm - Background Task)
+        public_id = record.get("public_id")
+        actual_label = record.get("actual_label")
         
-        return {"success": True, "message": "Correction approved"}
+        # Nếu có đủ thông tin, thêm task gắn tag
+        if public_id and actual_label:
+            background_tasks.add_task(CloudinaryService.add_tag_to_image, public_id, actual_label)
+
+        return {"success": True, "message": "Đã duyệt và đang cập nhật nhãn trên Cloudinary."}
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -105,13 +143,14 @@ async def approve_correction(correction_id: str):
 
 @router.put("/{correction_id}/reject")
 async def reject_correction(correction_id: str):
-    """Từ chối correction"""
+    """
+    Admin từ chối: Dữ liệu rác hoặc spam -> Đánh dấu rejected
+    """
     if not ObjectId.is_valid(correction_id):
-        raise HTTPException(status_code=400, detail="Invalid correction ID")
+        raise HTTPException(status_code=400, detail="ID không hợp lệ")
     
     try:
         collection = get_collection("corrections")
-        
         result = await collection.update_one(
             {"_id": ObjectId(correction_id)},
             {"$set": {
@@ -121,9 +160,9 @@ async def reject_correction(correction_id: str):
         )
         
         if result.modified_count == 0:
-            raise HTTPException(status_code=404, detail="Correction not found")
-        
-        return {"success": True, "message": "Correction rejected"}
+            raise HTTPException(status_code=404, detail="Không tìm thấy bản ghi")
+            
+        return {"success": True, "message": "Đã từ chối."}
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -131,26 +170,29 @@ async def reject_correction(correction_id: str):
 
 @router.delete("/{correction_id}")
 async def delete_correction(correction_id: str):
-    """Xóa correction"""
+    """
+    Xóa hoàn toàn bản ghi (Dọn dẹp)
+    """
     if not ObjectId.is_valid(correction_id):
-        raise HTTPException(status_code=400, detail="Invalid correction ID")
+        raise HTTPException(status_code=400, detail="ID không hợp lệ")
     
     try:
         collection = get_collection("corrections")
         result = await collection.delete_one({"_id": ObjectId(correction_id)})
         
         if result.deleted_count == 0:
-            raise HTTPException(status_code=404, detail="Correction not found")
-        
-        return {"success": True, "message": "Correction deleted"}
-        
+            raise HTTPException(status_code=404, detail="Không tìm thấy")
+            
+        return {"success": True, "message": "Đã xóa bản ghi."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/stats")
 async def get_correction_stats():
-    """Thống kê corrections"""
+    """
+    Thống kê cho Dashboard (Optional)
+    """
     try:
         collection = get_collection("corrections")
         

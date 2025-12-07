@@ -36,7 +36,7 @@ class CarDetector:
             self.model = YOLO(str(self.model_path))
             print(f"✅ Model loaded successfully: {self.model_path}")
         except Exception as e:
-            print(f"❌ Error loading model: {e}")
+            print(f" Error loading model: {e}")
             raise
     
     def _load_class_names(self):
@@ -52,9 +52,9 @@ class CarDetector:
                 # Fallback: dùng class names từ model
                 self.class_names = self.model.names
             
-            print(f"✅ Loaded {len(self.class_names)} classes")
+            print(f" Loaded {len(self.class_names)} classes")
         except Exception as e:
-            print(f"⚠️  Error loading class names: {e}")
+            print(f" Error loading class names: {e}")
             self.class_names = {}
     
     def predict(
@@ -122,7 +122,7 @@ class CarDetector:
             return detections
             
         except Exception as e:
-            print(f"❌ Prediction error: {e}")
+            print(f" Prediction error: {e}")
             return []
     
     def predict_batch(
@@ -182,7 +182,7 @@ class CarDetector:
             return image
             
         except Exception as e:
-            print(f"❌ Annotation error: {e}")
+            print(f" Annotation error: {e}")
             return image
     
     def get_class_distribution(self, detections: List[Dict]) -> Dict[str, int]:
@@ -248,7 +248,7 @@ if __name__ == "__main__":
     
     try:
         detector = CarDetector()
-        print("✅ Detector initialized successfully")
+        print(" Detector initialized successfully")
         
         # Test với ảnh mẫu
         test_image = Image.new('RGB', (640, 640), color='white')
@@ -257,4 +257,4 @@ if __name__ == "__main__":
         print(f"Detections: {len(detections)}")
         
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        print(f" Test failed: {e}")

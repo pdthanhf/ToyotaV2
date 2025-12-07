@@ -1,7 +1,8 @@
 import cloudinary
 import cloudinary.uploader
+import cloudinary.api
 from cloudinary.utils import cloudinary_url
-from typing import Optional, Dict
+from typing import Optional, Dict, List, Union
 from io import BytesIO
 from PIL import Image
 import base64
@@ -28,15 +29,6 @@ class CloudinaryService:
     ) -> Dict[str, str]:
         """
         Upload ảnh lên Cloudinary
-        
-        Args:
-            image_file: File ảnh (bytes, BytesIO, hoặc PIL Image)
-            folder: Folder trên Cloudinary (mặc định lấy từ config)
-            public_id: Tên file tùy chỉnh (nếu không có sẽ tự động)
-            tags: Tags để phân loại ảnh
-            
-        Returns:
-            Dict chứa URL và public_id
         """
         try:
             upload_params = {
@@ -79,18 +71,8 @@ class CloudinaryService:
         tags: list = None,
         format: str = "JPEG"
     ) -> Dict[str, str]:
-        """
-        Upload ảnh PIL Image lên Cloudinary
-        
-        Args:
-            pil_image: PIL Image object
-            folder: Folder trên Cloudinary
-            public_id: Tên file
-            tags: Tags
-            format: Format ảnh (JPEG, PNG, WEBP)
-        """
+        """Upload ảnh PIL Image lên Cloudinary"""
         try:
-            # Convert PIL Image to BytesIO
             buffer = BytesIO()
             pil_image.save(buffer, format=format)
             buffer.seek(0)
@@ -101,12 +83,8 @@ class CloudinaryService:
                 public_id=public_id,
                 tags=tags
             )
-            
         except Exception as e:
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
     
     @staticmethod
     def upload_base64_image(
@@ -115,17 +93,8 @@ class CloudinaryService:
         public_id: str = None,
         tags: list = None
     ) -> Dict[str, str]:
-        """
-        Upload ảnh từ base64 string
-        
-        Args:
-            base64_string: Base64 encoded image
-            folder: Folder trên Cloudinary
-            public_id: Tên file
-            tags: Tags
-        """
+        """Upload ảnh từ base64 string"""
         try:
-            # Decode base64
             if "," in base64_string:
                 base64_string = base64_string.split(",")[1]
             
@@ -137,24 +106,12 @@ class CloudinaryService:
                 public_id=public_id,
                 tags=tags
             )
-            
         except Exception as e:
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
     
     @staticmethod
     def delete_image(public_id: str) -> Dict[str, bool]:
-        """
-        Xóa ảnh trên Cloudinary
-        
-        Args:
-            public_id: Public ID của ảnh
-            
-        Returns:
-            Dict với status success/failure
-        """
+        """Xóa ảnh trên Cloudinary"""
         try:
             result = cloudinary.uploader.destroy(public_id)
             return {
@@ -162,11 +119,42 @@ class CloudinaryService:
                 "message": result.get("result")
             }
         except Exception as e:
-            return {
-                "success": False,
-                "error": str(e)
-            }
-    
+            return {"success": False, "error": str(e)}
+
+    # ========================================================
+    #  ACTIVE LEARNING UTILS (MỚI THÊM)
+    # ========================================================
+    @staticmethod
+    def add_tag_to_image(public_id: str, tag: str) -> bool:
+        """
+        Gắn thẻ (tag) cho ảnh trên Cloudinary.
+        Dùng khi Admin duyệt ảnh để đánh dấu ảnh này thuộc dòng xe nào.
+        """
+        try:
+            if not public_id or not tag:
+                return False
+
+            # Gắn tag (Cloudinary cho phép 1 ảnh có nhiều tag)
+            cloudinary.uploader.add_tag(tag, [public_id])
+            print(f" Cloudinary: Đã gắn tag '{tag}' cho ảnh '{public_id}'")
+            return True
+        except Exception as e:
+            print(f" Cloudinary Error (add_tag): {e}")
+            return False
+
+    @staticmethod
+    def remove_tag_from_image(public_id: str, tag: str) -> bool:
+        """Gỡ tag khỏi ảnh"""
+        try:
+            cloudinary.uploader.remove_tag(tag, [public_id])
+            return True
+        except Exception as e:
+            print(f" Cloudinary Error (remove_tag): {e}")
+            return False
+
+    # ========================================================
+    #  URL OPTIMIZATION
+    # ========================================================
     @staticmethod
     def get_optimized_url(
         public_id: str,
@@ -176,63 +164,35 @@ class CloudinaryService:
         quality: str = "auto",
         format: str = "auto"
     ) -> str:
-        """
-        Lấy URL ảnh đã tối ưu
-        
-        Args:
-            public_id: Public ID của ảnh
-            width: Chiều rộng
-            height: Chiều cao
-            crop: Chế độ crop (fill, fit, scale, etc.)
-            quality: Chất lượng (auto, best, good, etc.)
-            format: Format (auto, jpg, png, webp)
-            
-        Returns:
-            Optimized URL
-        """
+        """Lấy URL ảnh đã tối ưu"""
         try:
             transformation = {
                 "quality": quality,
                 "fetch_format": format
             }
             
-            if width:
-                transformation["width"] = width
-            if height:
-                transformation["height"] = height
-            if width or height:
-                transformation["crop"] = crop
+            if width: transformation["width"] = width
+            if height: transformation["height"] = height
+            if width or height: transformation["crop"] = crop
             
             url, _ = cloudinary_url(
                 public_id,
                 **transformation,
                 secure=True
             )
-            
             return url
-            
         except Exception as e:
             return None
     
     @staticmethod
     def get_thumbnail_url(public_id: str, size: int = 300) -> str:
-        """
-        Lấy URL thumbnail
-        
-        Args:
-            public_id: Public ID của ảnh
-            size: Kích thước thumbnail (default 300px)
-            
-        Returns:
-            Thumbnail URL
-        """
+        """Lấy URL thumbnail"""
         return CloudinaryService.get_optimized_url(
             public_id,
             width=size,
             height=size,
             crop="fill"
         )
-
 
 # Singleton instance
 cloudinary_service = CloudinaryService()

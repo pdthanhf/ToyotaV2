@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  CheckCircle, AlertCircle, Maximize2, X, ExternalLink 
+  CheckCircle, AlertCircle, Maximize2, X, ExternalLink,
+  ThumbsUp, ThumbsDown, Send, MessageSquarePlus 
 } from 'lucide-react';
 import { api } from '../../api';
 
@@ -9,6 +10,11 @@ export const DetectionResult = ({ result, filename, onReset }) => {
   const [selectedCarInfo, setSelectedCarInfo] = useState(null); 
   const [selectedVersion, setSelectedVersion] = useState(null); 
   const [showFullImage, setShowFullImage] = useState(false);
+
+  // --- STATE CHO FEEDBACK ---
+  const [feedbackStatus, setFeedbackStatus] = useState('idle'); // 'idle', 'submitting', 'sent'
+  const [showCorrectionInput, setShowCorrectionInput] = useState(false);
+  const [correctionValue, setCorrectionValue] = useState('');
 
   const bestDetection = result.detections?.[0];
   const resultImage = result.result_image_url || result.original_image_url;
@@ -28,63 +34,37 @@ export const DetectionResult = ({ result, filename, onReset }) => {
     fetchCars();
   }, [result]);
 
-  // --- LOGIC TÌM XE & PHIÊN BẢN ---
+  // --- LOGIC TÌM XE & PHIÊN BẢN (GIỮ NGUYÊN) ---
   const findCarInfo = (detectedName, database) => {
     if (!detectedName || !database || database.length === 0) return null;
     
-    const normalizedDetected = detectedName
-      .toLowerCase()
-      .replace(/_/g, ' ')
-      .trim();
+    const normalizedDetected = detectedName.toLowerCase().replace(/_/g, ' ').trim();
 
-    // 🔍 CÁCH 1: Tìm trong yolo_labels (ƯTIÊN NHẤT)
+    // 1. Tìm trong yolo_labels
     let found = database.find(car => {
       if (!car.yolo_labels || !Array.isArray(car.yolo_labels)) return false;
-      return car.yolo_labels.some(label => 
-        label.toLowerCase() === detectedName.toLowerCase()
-      );
+      return car.yolo_labels.some(label => label.toLowerCase() === detectedName.toLowerCase());
     });
-    if (found) {
-      console.log(`✅ Tìm thấy qua yolo_labels: ${found.name}`);
-      return found;
-    }
+    if (found) return found;
 
-    // 🔍 CÁCH 2: Tìm chính xác trong name (sau khi chuẩn hóa)
-    found = database.find(c => 
-      c.name.toLowerCase() === normalizedDetected
-    );
-    if (found) {
-      console.log(`✅ Tìm thấy qua name (exact): ${found.name}`);
-      return found;
-    }
+    // 2. Tìm chính xác tên
+    found = database.find(c => c.name.toLowerCase() === normalizedDetected);
+    if (found) return found;
 
-    // 🔍 CÁCH 3: Tìm chứa từ khóa
-    const keywords = normalizedDetected
-      .split(' ')
-      .filter(k => !['toyota', 'suv', 'sedan', 'mpv', 'hatchback', 'pickup'].includes(k));
-    
+    // 3. Tìm từ khóa
+    const keywords = normalizedDetected.split(' ').filter(k => !['toyota', 'suv', 'sedan', 'mpv', 'hatchback', 'pickup'].includes(k));
     if (keywords.length > 0) {
       found = database.find(c => {
         const dbName = c.name.toLowerCase();
         return keywords.every(k => dbName.includes(k));
       });
-      if (found) {
-        console.log(`✅ Tìm thấy qua keywords: ${found.name}`);
-        return found;
-      }
+      if (found) return found;
     }
 
-    // 🔍 CÁCH 4: Tìm tương đối (chứa một phần)
-    found = database.find(c => 
-      c.name.toLowerCase().includes(normalizedDetected) ||
-      normalizedDetected.includes(c.name.toLowerCase())
-    );
-    if (found) {
-      console.log(`✅ Tìm thấy qua partial match: ${found.name}`);
-      return found;
-    }
+    // 4. Tìm tương đối
+    found = database.find(c => c.name.toLowerCase().includes(normalizedDetected) || normalizedDetected.includes(c.name.toLowerCase()));
+    if (found) return found;
 
-    console.warn(`❌ Không tìm thấy: ${detectedName}`);
     return null;
   };
 
@@ -104,9 +84,7 @@ export const DetectionResult = ({ result, filename, onReset }) => {
 
     for (const map of keywordMap) {
       if (nameLower.includes(map.key)) {
-        const match = carInfo.versions.find(v => 
-          map.target.some(t => v.name.toLowerCase().includes(t))
-        );
+        const match = carInfo.versions.find(v => map.target.some(t => v.name.toLowerCase().includes(t)));
         if (match) return match;
       }
     }
@@ -145,13 +123,47 @@ export const DetectionResult = ({ result, filename, onReset }) => {
     return val;
   };
 
+  // --- LOGIC GỬI FEEDBACK (ĐÃ SỬA LỖI QUAN TRỌNG) ---
+  const handleSubmitFeedback = async (isCorrect, actualLabel = null) => {
+    if (!bestDetection) return;
+    
+    setFeedbackStatus('submitting');
+    
+    // Tạo payload gửi đi
+    const payload = {
+      image_url: resultImage, // Url ảnh từ cloudinary
+      predicted_label: bestDetection.class_name,
+      actual_label: isCorrect ? bestDetection.class_name : actualLabel,
+      confidence: bestDetection.confidence,
+      is_correct: isCorrect,
+      timestamp: new Date().toISOString()
+    };
+
+    try {
+      console.log(" Đang gửi feedback về server...", payload);
+      
+      //  GỌI API THẬT (KHÔNG ĐƯỢC COMMENT DÒNG NÀY)
+      await api.sendFeedback(payload); 
+      
+      console.log(" Gửi thành công!");
+      setFeedbackStatus('sent');
+      setShowCorrectionInput(false);
+    } catch (error) {
+      console.error(" Lỗi gửi feedback:", error);
+      alert("Có lỗi xảy ra khi gửi phản hồi: " + (error.message || "Vui lòng thử lại."));
+      setFeedbackStatus('idle');
+    }
+  };
+
   if (!bestDetection) return null;
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 animate-fade-in-up">
       
-      {/* CỘT TRÁI: ẢNH */}
+      {/* CỘT TRÁI: ẢNH & FEEDBACK */}
       <div className="lg:w-5/12 space-y-4">
+        
+        {/* KHỐI HIỂN THỊ ẢNH */}
         <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
            <div className="bg-gray-900 text-white px-4 py-2 flex justify-between items-center">
              <span className="text-sm font-bold flex items-center">
@@ -198,9 +210,88 @@ export const DetectionResult = ({ result, filename, onReset }) => {
               })}
            </div>
         </div>
+
+        {/* --- KHỐI FEEDBACK (SỬA LỖI NHẬN DIỆN) --- */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 shadow-sm transition-all duration-300">
+          {feedbackStatus === 'sent' ? (
+            <div className="text-center text-green-700 py-2 animate-fade-in">
+              <CheckCircle className="mx-auto mb-2" size={32} />
+              <p className="font-bold">Cảm ơn đóng góp của bạn!</p>
+              <p className="text-xs opacity-80">Dữ liệu này sẽ giúp hệ thống AI thông minh hơn.</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 mb-3">
+                <MessageSquarePlus size={20} className="text-blue-600"/>
+                <h4 className="font-bold text-gray-800 text-sm">Kết quả này có đúng không?</h4>
+              </div>
+
+              {!showCorrectionInput ? (
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => handleSubmitFeedback(true)}
+                    disabled={feedbackStatus === 'submitting'}
+                    className="flex-1 flex items-center justify-center gap-2 bg-white border border-green-500 text-green-700 hover:bg-green-50 py-2 rounded transition font-medium text-sm shadow-sm"
+                  >
+                    <ThumbsUp size={16} />
+                    Đúng
+                  </button>
+                  <button 
+                    onClick={() => setShowCorrectionInput(true)}
+                    disabled={feedbackStatus === 'submitting'}
+                    className="flex-1 flex items-center justify-center gap-2 bg-white border border-red-400 text-red-600 hover:bg-red-50 py-2 rounded transition font-medium text-sm shadow-sm"
+                  >
+                    <ThumbsDown size={16} />
+                    Sai
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3 animate-fade-in">
+                  <p className="text-xs text-gray-600 font-medium">Vui lòng chọn dòng xe đúng:</p>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <select 
+                        className="w-full p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-400 outline-none bg-white appearance-none"
+                        value={correctionValue}
+                        onChange={(e) => setCorrectionValue(e.target.value)}
+                      >
+                        <option value="">-- Chọn tên xe --</option>
+                        {carsDB.map((car, idx) => (
+                          <option key={idx} value={car.name}>{car.name}</option>
+                        ))}
+                      </select>
+                      {/* Mũi tên custom cho select */}
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                      </div>
+                    </div>
+                    
+                    <button 
+                      onClick={() => handleSubmitFeedback(false, correctionValue)}
+                      disabled={!correctionValue || feedbackStatus === 'submitting'}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 rounded flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
+                    >
+                      {feedbackStatus === 'submitting' ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <Send size={16}/>
+                      )}
+                    </button>
+                  </div>
+                  <button 
+                    onClick={() => setShowCorrectionInput(false)}
+                    className="text-xs text-gray-500 hover:text-gray-800 hover:underline w-full text-center transition-colors"
+                  >
+                    Quay lại
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
-      {/* CỘT PHẢI: BẢNG THÔNG SỐ */}
+      {/* CỘT PHẢI: BẢNG THÔNG SỐ (GIỮ NGUYÊN) */}
       <div className="lg:w-7/12">
         {selectedCarInfo ? (
           <div className="bg-white shadow-lg rounded-lg overflow-hidden border border-gray-200">
@@ -212,7 +303,6 @@ export const DetectionResult = ({ result, filename, onReset }) => {
                    THÔNG SỐ {selectedCarInfo.name}
                  </h2>
                  
-                 {/* ✅ HIỂN THỊ MÔ TẢ NGẮN (DESCRIPTION) */}
                  {selectedCarInfo.description && (
                    <p className="text-sm text-white/90 mt-1 italic font-medium leading-relaxed">
                      "{selectedCarInfo.description}"

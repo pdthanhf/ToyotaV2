@@ -8,14 +8,14 @@ class MongoDB:
     async def connect(cls):
         """Kết nối MongoDB"""
         cls.client = AsyncIOMotorClient(settings.MONGODB_URI)
-        print(f"✅ Connected to MongoDB: {settings.DATABASE_NAME}")
+        print(f" Connected to MongoDB: {settings.DATABASE_NAME}")
     
     @classmethod
     async def close(cls):
         """Đóng kết nối MongoDB"""
         if cls.client:
             cls.client.close()
-            print("❌ MongoDB connection closed")
+            print(" MongoDB connection closed")
     
     @classmethod
     def get_database(cls):

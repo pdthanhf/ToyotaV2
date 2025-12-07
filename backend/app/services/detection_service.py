@@ -25,9 +25,9 @@ class DetectionService:
                 raise FileNotFoundError(f"Model file not found: {settings.MODEL_PATH}")
             
             self.model = YOLO(str(model_path))
-            print(f"✅ YOLOv8 model loaded: {settings.MODEL_PATH}")
+            print(f" YOLOv8 model loaded: {settings.MODEL_PATH}")
         except Exception as e:
-            print(f"❌ Error loading model: {e}")
+            print(f" Error loading model: {e}")
             raise
     
     def load_class_info(self):
@@ -38,14 +38,14 @@ class DetectionService:
                 with open(class_info_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     self.class_names = data.get("class_names", {})
-                print(f"✅ Loaded {len(self.class_names)} class names")
+                print(f" Loaded {len(self.class_names)} class names")
             else:
                 # Fallback: Dùng class names từ model
                 if self.model:
                     self.class_names = self.model.names
-                print("⚠️ class_info.json not found, using model names")
+                print(" class_info.json not found, using model names")
         except Exception as e:
-            print(f"❌ Error loading class info: {e}")
+            print(f" Error loading class info: {e}")
             self.class_names = {}
     
     def detect(

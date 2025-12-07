@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.db.mongo import MongoDB
 # Import các router hiện có của bạn
-from app.routers import cars, detect, history, correct, stats, dashboard
+from app.routers import cars, detect, history, correct, stats, dashboard, auth
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -47,6 +47,7 @@ app.include_router(history.router, prefix="/api")
 app.include_router(correct.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
+app.include_router(auth.router, prefix="/api")
 
 # --- ROOT & HEALTH CHECK ---
 @app.get("/")
