@@ -1,0 +1,97 @@
+# ========================
+# 1. CẤU HÌNH CHUNG (OS & IDE)
+# ========================
+# File hệ điều hành (Mac/Windows)
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# File cấu hình của Editor/IDE (VS Code, Pycharm...)
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ========================
+# 2. BẢO MẬT & MÔI TRƯỜNG (QUAN TRỌNG NHẤT)
+# ========================
+# Chặn tất cả các file .env chứa key bí mật
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# ========================
+# 3. BACKEND (PYTHON / FASTAPI / DJANGO)
+# ========================
+# Byte-compiled / Optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Môi trường ảo (Virtual Environments)
+venv/
+env/
+.venv/
+ENV/
+
+# Distribution / Packaging
+build/
+dist/
+eggs/
+*.egg-info/
+
+# Logs
+*.log
+
+# Database (Nếu dùng SQLite file thì không nên push lên)
+*.sqlite3
+*.db
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# ========================
+# 4. AI / MACHINE LEARNING (Dành cho project của bạn)
+# ========================
+# Các file model thường rất nặng (vài trăm MB đến GB), không nên up lên Git
+*.pt
+*.pth
+*.onnx
+*.h5
+*.pkl
+# Nếu muốn up model nhẹ, hãy dùng Git LFS, còn mặc định nên ignore.
+
+# ========================
+# 5. FRONTEND (NODEJS / REACT / VUE)
+# ========================
+# Thư viện (Nặng nhất, bắt buộc phải bỏ qua)
+node_modules/
+
+# Thư mục build production
+dist/
+build/
+out/
+
+# Next.js / Nuxt.js (nếu có dùng)
+.next/
+.nuxt/
+
+# Logs frontend
+npm-debug.log*
+yarn-error.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# ========================
+# 6. KHÁC
+# ========================
+# Thư mục upload tạm thời (nếu code có tính năng upload ảnh)
+backend/uploads/
+backend/static/images/
+temp/
+tmp/
