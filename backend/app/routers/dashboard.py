@@ -29,43 +29,52 @@ async def get_dashboard_stats():
         conf_count = 0
         car_counts = {}
         
-        # Dùng Dictionary với key là DATE OBJECT để sort cho đúng
         date_map = {} 
         hour_counts = {i: 0 for i in range(24)}
         
-        # Lấy thời gian hiện tại
-        now = datetime.utcnow()
-        # Lọc 30 ngày gần nhất (thay vì 7 ngày để nhìn thấy nhiều dữ liệu hơn)
-        time_window = now - timedelta(days=30)
+        # Lấy thời gian hiện tại theo giờ Việt Nam (UTC + 7)
+        now_vn = datetime.utcnow() + timedelta(hours=7)
+        
+        # Lọc 30 ngày gần nhất tính từ giờ VN
+        time_window = now_vn - timedelta(days=30)
 
         for item in raw_data:
             ts = item.get("timestamp")
+            
+            # 1. Parse string ISO thành datetime object (nếu cần)
             if isinstance(ts, str):
                 try: ts = datetime.fromisoformat(ts.replace("Z", ""))
                 except: continue
+            
             if not isinstance(ts, datetime): continue
 
-            # Chỉ lấy dữ liệu trong khoảng thời gian cho phép
-            if ts >= time_window:
-                # 1. XỬ LÝ TIMELINE (QUAN TRỌNG: Key là ngày tháng năm chuẩn)
-                # Format: YYYY-MM-DD (để sort đúng)
-                date_key = ts.strftime("%Y-%m-%d") 
-                # Label hiển thị: DD/MM
-                display_label = ts.strftime("%d/%m")
+            # 2. QUAN TRỌNG: Chuyển timestamp của bản ghi sang giờ VN ngay lập tức
+            # (Giả sử DB lưu UTC, ta cộng 7 để ra giờ VN)
+            ts_vn = ts + timedelta(hours=7)
+
+            # 3. So sánh với time_window (đã là giờ VN)
+            if ts_vn >= time_window:
+                
+                # --- XỬ LÝ TIMELINE ---
+                # Vì ts_vn đã là giờ Việt Nam, nên hàm strftime sẽ ra đúng ngày 15/12
+                date_key = ts_vn.strftime("%Y-%m-%d") 
+                display_label = ts_vn.strftime("%d/%m")
                 
                 detections = item.get("detections", [])
                 det_count = len(detections)
                 
                 if date_key not in date_map:
-                    date_map[date_key] = {"date": display_label, "detections": 0, "sort_key": ts}
+                    date_map[date_key] = {"date": display_label, "detections": 0}
                 
                 date_map[date_key]["detections"] += det_count
                 
-                # 2. XỬ LÝ GIỜ
-                local_hour = (ts.hour + 7) % 24
+                # --- XỬ LÝ GIỜ (DETECTION BY HOUR) ---
+                # Vì ts_vn đã cộng 7 rồi, nên chỉ cần lấy .hour là xong
+                # Không cần công thức (h+7)%24 phức tạp nữa
+                local_hour = ts_vn.hour
                 hour_counts[local_hour] += det_count
 
-                # 3. CHI TIẾT XE
+                # --- CHI TIẾT XE ---
                 for d in detections:
                     total_dets += 1
                     name = d.get("class_name") or d.get("label") or "Unknown"
@@ -79,8 +88,7 @@ async def get_dashboard_stats():
         # TỔNG HỢP KẾT QUẢ
         # ======================================================
         
-        # 1. Sắp xếp Timeline theo thời gian thực (Sort by Key YYYY-MM-DD)
-        # Bước này sửa lỗi ngày tháng bị loạn
+        # 1. Timeline
         sorted_keys = sorted(date_map.keys()) 
         stats["detections_timeline"] = [
             {"date": date_map[k]["date"], "detections": date_map[k]["detections"]} 
@@ -99,7 +107,7 @@ async def get_dashboard_stats():
         if conf_count > 0:
             stats["avg_confidence"] = round(total_conf / conf_count, 4)
 
-        # 5. Price Distribution (Giữ nguyên logic cũ)
+        # 5. Price Distribution (Logic này giữ nguyên vì không liên quan thời gian)
         all_cars = await col_cars.find({}).to_list(None)
         price_dist = {'Dưới 500 triệu': 0, '500-800 triệu': 0, '800-1.2 tỷ': 0, 'Trên 1.2 tỷ': 0}
         

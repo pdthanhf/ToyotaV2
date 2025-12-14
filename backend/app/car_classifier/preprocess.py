@@ -248,12 +248,12 @@ if __name__ == "__main__":
     
     # Test resize
     resized = resize_image(test_image, (640, 640))
-    print(f"✅ Resized: {resized.size}")
+    print(f" Resized: {resized.size}")
     
     # Test preprocess pipeline
     processed = preprocess_for_detection(test_image, enhance=True)
-    print(f"✅ Processed: {processed.size}")
+    print(f" Processed: {processed.size}")
     
     # Test validation
     is_valid, msg = validate_image(test_image)
-    print(f"✅ Validation: {is_valid} - {msg}")
+    print(f" Validation: {is_valid} - {msg}")

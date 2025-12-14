@@ -11,53 +11,6 @@ from app.db.mongo import get_collection
 from app.models.history import HistoryCreate, Detection
 from app.core.config import settings
 
-# DANH SÁCH CLASS NAMES (Phải khớp thứ tự 100% với file data.yaml dùng để train)
-class_names = [
-    # --- 22 XE CŨ ---
-    'GT86',
-    'Toyota 4Runner_SUV',
-    'Toyota 86_sport',
-    'Toyota Alphard_mpv',
-    'Toyota Aygo_hatchback',
-    'Toyota Camry XSE',
-    'Toyota Camry XV40',
-    'Toyota Camry XV50',
-    'Toyota Camry_Hybrid',
-    'Toyota Camry_sedan',
-    'Toyota Corolla Altis_sedan',
-    'Toyota Corolla EX_sedan',
-    'Toyota Corolla Furia',
-    'Toyota Crown_sedan',
-    'Toyota GT86',
-    'Toyota Land Cruiser_suv',
-    'Toyota Prado_suv',
-    'Toyota Prius_hybrid',
-    'Toyota RAV4_suv',
-    'Toyota Tundra_pickup',
-    'Toyota Vios_sedan',
-    'Toyota Yaris_hatchback',
-    
-    # --- 19 XE MỚI THÊM ---
-    'Toyota Vios',
-    'Toyota Camry',
-    'Toyota Fortuner',
-    'Toyota Yaris Cross',
-    'Toyota Supra',
-    'Alphard',
-    'Toyota Innova',
-    'Toyota Yaris',
-    'Toyota Corolla Altis',
-    'Toyota Avanza',
-    'Toyota Prius',
-    'Toyota Rush',
-    'Toyota Wigo',
-    'Toyota Hilux',
-    'Toyota Land Cruiser',
-    'Toyota RAV4',
-    'Toyota Innova Cross',
-    'Toyota Veloz Cross',
-    'Toyota Raize'
-]
 
 
 router = APIRouter(prefix="/detect", tags=["Detection"])

@@ -2,12 +2,11 @@ import React, { useState } from 'react';
 import { Navbar } from '../components/common/Navbar';
 import { ImageUpload } from '../components/detector/ImageUpload';
 import { DetectionResult } from '../components/detector/DetectionResult';
-// ❌ ĐÃ XÓA: import { AdminDashboard } ... để bảo mật
 import { HistoryView } from '../components/history/HistoryView';
 import { AnalyticsDashboard } from '../components/AnalyticsDashboard';
 import { api } from '../api';
 import { Camera } from 'lucide-react';
-import { Navigate } from 'react-router-dom'; // ✅ Thêm cái này để chuyển trang
+import { Navigate } from 'react-router-dom'; // để chuyển trang
 
 const HomePage = () => {
   // Quản lý Tab hiển thị

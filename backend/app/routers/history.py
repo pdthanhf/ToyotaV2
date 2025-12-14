@@ -8,8 +8,18 @@ from app.utils.cloudinary_utils import cloudinary_service
 
 router = APIRouter(prefix="/history", tags=["History"])
 
+# --- HÀM HELPER XỬ LÝ DỮ LIỆU ---
 def history_helper(history) -> dict:
     """Convert MongoDB document to dict"""
+    
+    # 1. Lấy thời gian gốc (UTC) từ Database
+    ts = history.get("timestamp")
+    
+    # 2. LOGIC QUAN TRỌNG: Chuyển sang giờ Việt Nam (GMT+7) để hiển thị
+    # Nếu có dữ liệu thời gian, ta cộng thêm 7 tiếng
+    if ts and isinstance(ts, datetime):
+        ts = ts + timedelta(hours=7)
+    
     return {
         "_id": str(history["_id"]),
         "filename": history.get("filename"),
@@ -20,9 +30,12 @@ def history_helper(history) -> dict:
         ) if history.get("cloudinary_public_id") else None,
         "detections": history.get("detections", []),
         "cloudinary_public_id": history.get("cloudinary_public_id"),
-        "timestamp": history.get("timestamp"),
+        
+        # Trả về thời gian đã được chuyển sang giờ VN
+        "timestamp": ts, 
     }
 
+# --- API LẤY DANH SÁCH LỊCH SỬ ---
 @router.get("/", response_model=List[dict])
 async def get_history(
     limit: int = Query(50, ge=1, le=100),
@@ -31,27 +44,24 @@ async def get_history(
 ):
     """
     Lấy lịch sử nhận diện
-    
-    Args:
-        limit: Số record tối đa (mặc định 50)
-        skip: Bỏ qua bao nhiêu record (pagination)
-        days: Lọc theo số ngày gần đây (optional)
     """
     collection = get_collection("history")
     
     # Filter by date if specified
     query = {}
     if days:
+        # Tính mốc thời gian (UTC) cách đây 'days' ngày
         date_from = datetime.utcnow() - timedelta(days=days)
         query["timestamp"] = {"$gte": date_from}
     
     history_list = []
+    # Sort timestamp -1 để lấy cái mới nhất trước
     async for history in collection.find(query).sort("timestamp", -1).skip(skip).limit(limit):
         history_list.append(history_helper(history))
     
     return history_list
 
-
+# --- API LẤY CHI TIẾT 1 LỊCH SỬ ---
 @router.get("/{history_id}", response_model=dict)
 async def get_history_by_id(history_id: str):
     """Lấy chi tiết một record lịch sử"""
@@ -66,7 +76,7 @@ async def get_history_by_id(history_id: str):
     
     return history_helper(history)
 
-
+# --- API XÓA LỊCH SỬ ---
 @router.delete("/{history_id}")
 async def delete_history(history_id: str):
     """
@@ -94,7 +104,7 @@ async def delete_history(history_id: str):
     
     return {"success": True, "message": "History deleted successfully"}
 
-
+# --- API THỐNG KÊ (ĐÃ SỬA LOGIC GIỜ VN) ---
 @router.get("/stats/summary")
 async def get_history_stats():
     """Lấy thống kê tổng quan"""
@@ -102,13 +112,28 @@ async def get_history_stats():
     
     total = await collection.count_documents({})
     
-    # Số lượng nhận diện theo ngày
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    today_count = await collection.count_documents({"timestamp": {"$gte": today_start}})
+    # --- LOGIC TÍNH TOÁN NGÀY HÔM NAY THEO GIỜ VIỆT NAM ---
     
-    # Số lượng 7 ngày gần đây
-    week_start = datetime.utcnow() - timedelta(days=7)
-    week_count = await collection.count_documents({"timestamp": {"$gte": week_start}})
+    # 1. Lấy giờ hiện tại (UTC)
+    now_utc = datetime.utcnow()
+    
+    # 2. Chuyển sang giờ VN (+7)
+    now_vn = now_utc + timedelta(hours=7)
+    
+    # 3. Tìm thời điểm 00:00:00 của ngày hôm nay tại VN
+    today_start_vn = now_vn.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # 4. Quy đổi ngược lại 00:00 VN sang UTC để query Database
+    # (Ví dụ: 00:00 VN ngày 15/12 là 17:00 UTC ngày 14/12)
+    today_query_utc = today_start_vn - timedelta(hours=7)
+    
+    # Đếm số lượng từ mốc thời gian đó trở đi
+    today_count = await collection.count_documents({"timestamp": {"$gte": today_query_utc}})
+    
+    # --- LOGIC 7 NGÀY GẦN ĐÂY ---
+    # Lấy mốc 7 ngày trước so với hiện tại
+    week_start_utc = datetime.utcnow() - timedelta(days=7)
+    week_count = await collection.count_documents({"timestamp": {"$gte": week_start_utc}})
     
     return {
         "total_detections": total,

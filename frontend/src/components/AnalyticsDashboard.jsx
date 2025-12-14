@@ -170,7 +170,7 @@ export const AnalyticsDashboard = () => {
               <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#9ca3af" />
               <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" />
               <Tooltip contentStyle={{ borderRadius: '8px' }} />
-              {/* ✅ ĐÃ SỬA: Thêm name="Lượt nhận diện" */}
+              {/* Thêm name="Lượt nhận diện" */}
               <Area type="monotone" dataKey="detections" name="Lượt nhận diện" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorDetections)" />
             </AreaChart>
           </ResponsiveContainer>
@@ -186,7 +186,7 @@ export const AnalyticsDashboard = () => {
               <XAxis type="number" tick={{ fontSize: 11 }} stroke="#9ca3af" />
               <YAxis type="category" dataKey="car_name" width={100} tick={{ fontSize: 11 }} stroke="#9ca3af" />
               <Tooltip contentStyle={{ borderRadius: '8px' }} />
-              {/* ✅ ĐÃ SỬA: Thêm name="Số lượng" */}
+              {/* Thêm name="Số lượng" */}
               <Bar dataKey="count" name="Số lượng" fill="#ef4444" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -207,7 +207,7 @@ export const AnalyticsDashboard = () => {
               <XAxis dataKey="hour" tick={{ fontSize: 10 }} interval={2} stroke="#9ca3af" />
               <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" />
               <Tooltip contentStyle={{ borderRadius: '8px' }} />
-              {/* ✅ ĐÃ SỬA: Thêm name="Lượt nhận diện" */}
+              {/* Thêm name="Lượt nhận diện" */}
               <Line type="monotone" dataKey="count" name="Lượt nhận diện" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
             </LineChart>
           </ResponsiveContainer>
@@ -225,7 +225,7 @@ export const AnalyticsDashboard = () => {
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#9ca3af" />
                 <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" />
                 <Tooltip contentStyle={{ borderRadius: '8px' }} />
-                {/* ✅ ĐÃ SỬA: Thêm name="Số lượng xe" */}
+                {/* Thêm name="Số lượng xe" */}
                 <Bar dataKey="value" name="Số lượng xe" fill="#10b981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>

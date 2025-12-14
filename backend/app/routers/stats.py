@@ -12,16 +12,11 @@ router = APIRouter(prefix="/stats", tags=["Statistics"])
 async def get_dashboard_stats():
     """
     Lấy tất cả thống kê cho dashboard
-    Bao gồm: cars, history, detections, top cars
     """
     try:
-        # Thống kê xe
         car_stats = await car_service.get_stats()
-        
-        # Thống kê lịch sử
         history_stats = await history_service.get_stats()
         
-        # Thống kê corrections
         corrections_collection = get_collection("corrections")
         total_corrections = await corrections_collection.count_documents({})
         pending_corrections = await corrections_collection.count_documents({"status": "pending"})
@@ -43,18 +38,13 @@ async def get_dashboard_stats():
 @router.get("/timeline")
 async def get_detection_timeline(days: int = 30):
     """
-    Lấy timeline detections theo ngày
-    
-    Args:
-        days: Số ngày lấy dữ liệu (mặc định 30)
+    Lấy timeline detections theo ngày (ĐÃ SỬA MÚI GIỜ VN)
     """
     try:
         collection = get_collection("history")
         
-        # Tính ngày bắt đầu
         start_date = datetime.utcnow() - timedelta(days=days)
         
-        # Aggregate theo ngày
         pipeline = [
             {
                 "$match": {
@@ -66,7 +56,8 @@ async def get_detection_timeline(days: int = 30):
                     "_id": {
                         "$dateToString": {
                             "format": "%Y-%m-%d",
-                            "date": "$timestamp"
+                            "date": "$timestamp",
+                            "timezone": "+07:00" # <--- THÊM DÒNG NÀY (Quan trọng)
                         }
                     },
                     "count": {"$sum": 1},
@@ -97,12 +88,7 @@ async def get_detection_timeline(days: int = 30):
 
 @router.get("/top-cars")
 async def get_top_detected_cars(limit: int = 10):
-    """
-    Lấy top xe được nhận diện nhiều nhất
-    
-    Args:
-        limit: Số lượng xe (mặc định 10)
-    """
+    """Lấy top xe được nhận diện nhiều nhất"""
     try:
         collection = get_collection("history")
         
@@ -135,17 +121,15 @@ async def get_top_detected_cars(limit: int = 10):
 
 @router.get("/car-types")
 async def get_detection_by_car_type():
-    """Thống kê detections theo loại xe (SUV, Sedan, etc.)"""
+    """Thống kê detections theo loại xe"""
     try:
         history_collection = get_collection("history")
         cars_collection = get_collection("cars")
         
-        # Lấy mapping tên xe -> type
         car_types = {}
         async for car in cars_collection.find():
             car_types[car["name"]] = car.get("type", "Unknown")
         
-        # Aggregate detections
         pipeline = [
             {"$unwind": "$detections"},
             {
@@ -165,7 +149,6 @@ async def get_detection_by_car_type():
                 type_stats[car_type] = 0
             type_stats[car_type] += item["count"]
         
-        # Convert to list
         result = [
             {"type": k, "count": v}
             for k, v in sorted(type_stats.items(), key=lambda x: x[1], reverse=True)
@@ -179,7 +162,7 @@ async def get_detection_by_car_type():
 
 @router.get("/confidence-distribution")
 async def get_confidence_distribution():
-    """Phân phối confidence của các detections"""
+    """Phân phối confidence"""
     try:
         collection = get_collection("history")
         
@@ -213,14 +196,22 @@ async def get_confidence_distribution():
 
 @router.get("/hourly-activity")
 async def get_hourly_activity():
-    """Thống kê hoạt động theo giờ trong ngày"""
+    """
+    Thống kê hoạt động theo giờ trong ngày (ĐÃ SỬA MÚI GIỜ VN)
+    """
     try:
         collection = get_collection("history")
         
         pipeline = [
             {
                 "$group": {
-                    "_id": {"$hour": "$timestamp"},
+                    "_id": {
+                        # Sửa cú pháp $hour để hỗ trợ timezone
+                        "$hour": {
+                            "date": "$timestamp",
+                            "timezone": "+07:00" # <--- THÊM DÒNG NÀY
+                        }
+                    },
                     "count": {"$sum": 1}
                 }
             },

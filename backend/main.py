@@ -40,7 +40,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- INCLUDE ROUTERS (CÁC API CŨ) ---
+# --- INCLUDE ROUTERS  ---
 app.include_router(cars.router, prefix="/api")
 app.include_router(detect.router, prefix="/api")
 app.include_router(history.router, prefix="/api")

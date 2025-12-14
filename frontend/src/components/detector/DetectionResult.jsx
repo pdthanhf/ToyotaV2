@@ -123,7 +123,7 @@ export const DetectionResult = ({ result, filename, onReset }) => {
     return val;
   };
 
-  // --- LOGIC GỬI FEEDBACK (ĐÃ SỬA LỖI QUAN TRỌNG) ---
+  // --- LOGIC GỬI FEEDBACK  ---
   const handleSubmitFeedback = async (isCorrect, actualLabel = null) => {
     if (!bestDetection) return;
     

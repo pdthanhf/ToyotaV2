@@ -1,11 +1,11 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import Optional
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timedelta # <--- 1. BỔ SUNG TIMEDELTA
 
 from app.db.mongo import get_collection
 from app.models.correct import CorrectionRequest
-from app.utils.cloudinary_utils import CloudinaryService  # <-- Import Service vừa tạo
+from app.utils.cloudinary_utils import CloudinaryService  
 
 # Tạo router
 router = APIRouter(prefix="/correct", tags=["Correction & Active Learning"])
@@ -14,7 +14,6 @@ router = APIRouter(prefix="/correct", tags=["Correction & Active Learning"])
 def extract_public_id(image_url: str) -> str:
     """
     Trích xuất public_id từ URL ảnh Cloudinary.
-    Ví dụ: .../upload/v1234/toyota_project/abc.jpg -> toyota_project/abc
     """
     try:
         parts = image_url.split("/upload/")
@@ -83,6 +82,13 @@ async def get_all_corrections(
         cursor = collection.find(query).sort("created_at", -1).skip(skip).limit(limit)
         
         async for doc in cursor:
+            # --- SỬA LOGIC NGÀY GIỜ TẠI ĐÂY ---
+            ts = doc.get("created_at")
+            if ts and isinstance(ts, datetime):
+                # Cộng 7 tiếng cho giờ hiển thị
+                ts = ts + timedelta(hours=7)
+            # ----------------------------------
+
             corrections.append({
                 "id": str(doc["_id"]),
                 "image_url": doc.get("image_url"),
@@ -91,7 +97,7 @@ async def get_all_corrections(
                 "confidence": doc.get("confidence"),
                 "is_correct": doc.get("is_correct"),
                 "status": doc.get("status"),
-                "created_at": doc.get("created_at")
+                "created_at": ts # Dùng biến ts đã cộng giờ
             })
         
         return corrections
@@ -103,9 +109,7 @@ async def get_all_corrections(
 @router.put("/{correction_id}/approve")
 async def approve_correction(correction_id: str, background_tasks: BackgroundTasks):
     """
-    Admin duyệt: 
-    1. Xác nhận dữ liệu này là đúng (status=approved).
-    2. Gọi Cloudinary gắn thẻ (tag) tên xe vào ảnh để chuẩn bị cho việc train sau này.
+    Admin duyệt
     """
     if not ObjectId.is_valid(correction_id):
         raise HTTPException(status_code=400, detail="ID không hợp lệ")
@@ -144,7 +148,7 @@ async def approve_correction(correction_id: str, background_tasks: BackgroundTas
 @router.put("/{correction_id}/reject")
 async def reject_correction(correction_id: str):
     """
-    Admin từ chối: Dữ liệu rác hoặc spam -> Đánh dấu rejected
+    Admin từ chối
     """
     if not ObjectId.is_valid(correction_id):
         raise HTTPException(status_code=400, detail="ID không hợp lệ")
@@ -191,7 +195,7 @@ async def delete_correction(correction_id: str):
 @router.get("/stats")
 async def get_correction_stats():
     """
-    Thống kê cho Dashboard (Optional)
+    Thống kê cho Dashboard
     """
     try:
         collection = get_collection("corrections")
