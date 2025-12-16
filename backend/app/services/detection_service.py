@@ -55,19 +55,15 @@ class DetectionService:
         draw_boxes: bool = True
     ) -> Dict:
         """
-        Nhận diện xe trong ảnh
-        
-        Args:
-            image: PIL Image
-            confidence_threshold: Ngưỡng confidence (mặc định từ config)
-            draw_boxes: Có vẽ bounding box lên ảnh không
-            
-        Returns:
-            Dict chứa detections và annotated image
+        Nhận diện xe trong ảnh (Đã sửa để debug)
         """
+        # ---  Ép ngưỡng conf thấp xuống 0.25 nếu không truyền vào ---
         if confidence_threshold is None:
-            confidence_threshold = settings.CONFIDENCE_THRESHOLD
+            # confidence_threshold = settings.CONFIDENCE_THRESHOLD # CẤU HÌNH BAN ĐẦU
+            confidence_threshold = 0.15 
         
+        print(f"\n [DEBUG SERVICE] Bắt đầu detect với conf={confidence_threshold}...")
+
         try:
             # Chạy inference
             results = self.model.predict(
@@ -82,11 +78,14 @@ class DetectionService:
             if results and len(results) > 0:
                 result = results[0]
                 
+                # --- SỬA 2: Thêm Log xem tìm thấy gì ---
+                print(f" [DEBUG SERVICE] Tìm thấy {len(result.boxes)} vật thể.")
+                
                 # Parse detections
                 for box in result.boxes:
                     class_id = int(box.cls[0])
                     confidence = float(box.conf[0])
-                    bbox = box.xyxy[0].tolist()  # [x1, y1, x2, y2]
+                    bbox = box.xyxy[0].tolist() 
                     
                     # Lấy tên class
                     class_name = self.class_names.get(
@@ -94,6 +93,8 @@ class DetectionService:
                         result.names.get(class_id, f"Class_{class_id}")
                     )
                     
+                    print(f" Xe: {class_name} | Độ tin cậy: {confidence:.2f}") # <--- LOG QUAN TRỌNG
+
                     detections.append({
                         "class_id": class_id,
                         "class_name": class_name,
@@ -105,11 +106,24 @@ class DetectionService:
                             "y2": bbox[3]
                         }
                     })
+                    # --- SỬA 3: Chỉ giữ lại kết quả có độ tin cậy cao nhất ---
+                if len(detections) > 0:
+                    # 1. Sắp xếp danh sách theo độ tin cậy từ cao xuống thấp
+                    detections.sort(key=lambda x: x['confidence'], reverse=True)
+                    
+                    # 2. Chỉ cắt lấy đúng 1 phần tử đầu tiên
+                    detections = detections[:1]
+                    
+                    # (Tùy chọn) In log để kiểm tra
+                    best_car = detections[0]
+                    print(f" [CHỐT] Hệ thống chọn kết quả cao nhất: {best_car['class_name']} ({best_car['confidence']:.2f})")
                 
                 # Vẽ bounding boxes
                 if draw_boxes and len(detections) > 0:
                     annotated_image = self._draw_boxes(image.copy(), detections)
-            
+            else:
+                print(" [DEBUG SERVICE] Không tìm thấy gì!")
+
             return {
                 "success": True,
                 "detections": detections,
@@ -118,6 +132,7 @@ class DetectionService:
             }
             
         except Exception as e:
+            print(f" [ERROR] Lỗi khi detect: {e}")
             return {
                 "success": False,
                 "error": str(e),

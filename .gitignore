@@ -95,3 +95,9 @@ backend/uploads/
 backend/static/images/
 temp/
 tmp/
+
+# BỎ QUA DỮ LIỆU NẶNG (Quan trọng nhất) ---
+dataset/
+runs/
+#setup
+setup/

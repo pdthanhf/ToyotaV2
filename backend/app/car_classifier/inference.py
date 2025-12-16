@@ -1,3 +1,6 @@
+# LƯU Ý: FILE NÀY KHÔNG ĐƯỢC SỬ DỤNG TRONG API CHÍNH (main.py)
+# API đang sử dụng logic trong: app/services/detection_service.py
+# File này chỉ dùng cho mục đích testing hoặc chạy script rời.
 """
 File inference.py - Xử lý nhận diện xe bằng YOLOv8
 """
