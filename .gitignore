@@ -101,3 +101,7 @@ dataset/
 runs/
 #setup
 setup/
+# Các file script hỗ trợ backend
+backend/seed_data.py
+backend/check_db.py
+backend/scripts/

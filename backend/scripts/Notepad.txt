@@ -1,3 +1,0 @@
-python scripts/prepare_dataset.py
-python scripts/retrain_model.py
-python scripts/create_admin.py
