@@ -105,3 +105,5 @@ setup/
 backend/seed_data.py
 backend/check_db.py
 backend/scripts/
+# Thư mục core chứa các file quan trọng, tránh ghi đè nhầm
+backend/app/core/
