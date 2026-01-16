@@ -11,25 +11,17 @@ from app.db.mongo import get_collection
 from app.models.history import HistoryCreate, Detection
 from app.core.config import settings
 
-
-
+# Router này đang có prefix là /detect
+# Khi main.py gọi, đường dẫn sẽ là /api/detect/...
 router = APIRouter(prefix="/detect", tags=["Detection"])
 detection_service = DetectionService()
 
-@router.post("/detect")
+@router.post("/detect")  # -> URL thực tế: /api/detect/detect
 async def detect_cars(image: UploadFile = File(...)):
-    """
-    Nhận diện xe từ ảnh upload và lưu vào Cloudinary + MongoDB
-    
-    Flow:
-    1. Validate và đọc ảnh
-    2. Upload ảnh gốc lên Cloudinary
-    3. Nhận diện bằng YOLOv8
-    4. Upload ảnh kết quả (có bounding box) lên Cloudinary
-    5. Lưu thông tin vào MongoDB History
-    6. Trả về kết quả cho Frontend
-    """
-    
+    # Khai báo biến trước try để tránh lỗi UnboundLocalError khi vào except
+    original_public_id = None
+    result_public_id = None
+
     # ====== STEP 1: Validate ======
     if not image.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
@@ -41,9 +33,8 @@ async def detect_cars(image: UploadFile = File(...)):
     try:
         # ====== STEP 2: Upload ảnh gốc lên Cloudinary ======
         unique_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
-        original_filename = image.filename.rsplit('.', 1)[0]  # Loại bỏ extension
+        original_filename = image.filename.rsplit('.', 1)[0]
         
-        # Upload ảnh gốc
         original_upload = cloudinary_service.upload_image(
             BytesIO(contents),
             folder=f"{settings.CLOUDINARY_FOLDER}/originals",
@@ -58,7 +49,7 @@ async def detect_cars(image: UploadFile = File(...)):
             )
         
         original_url = original_upload.get("url")
-        original_public_id = original_upload.get("public_id")
+        original_public_id = original_upload.get("public_id") # Đã gán giá trị
         
         # ====== STEP 3: Nhận diện bằng YOLOv8 ======
         img = Image.open(BytesIO(contents))
@@ -66,7 +57,6 @@ async def detect_cars(image: UploadFile = File(...)):
         
         # ====== STEP 4: Upload ảnh kết quả lên Cloudinary ======
         result_url = None
-        result_public_id = None
         
         if detection_results.get("annotated_image"):
             result_upload = cloudinary_service.upload_pil_image(
@@ -78,7 +68,7 @@ async def detect_cars(image: UploadFile = File(...)):
             
             if result_upload.get("success"):
                 result_url = result_upload.get("url")
-                result_public_id = result_upload.get("public_id")
+                result_public_id = result_upload.get("public_id") # Đã gán giá trị
         
         # ====== STEP 5: Lưu vào MongoDB History ======
         detections = [
@@ -96,7 +86,7 @@ async def detect_cars(image: UploadFile = File(...)):
             original_image_url=original_url,
             result_image_url=result_url,
             detections=detections,
-            cloudinary_public_id=original_public_id  # Để xóa sau này nếu cần
+            cloudinary_public_id=original_public_id
         )
         
         collection = get_collection("history")
@@ -117,7 +107,8 @@ async def detect_cars(image: UploadFile = File(...)):
         }
         
     except Exception as e:
-        # Nếu có lỗi, xóa ảnh đã upload trên Cloudinary
+        print(f" Error processing image: {str(e)}") # Log lỗi ra terminal để dễ debug
+        # Chỉ xóa nếu biến đã có giá trị (không phải None)
         if original_public_id:
             cloudinary_service.delete_image(original_public_id)
         if result_public_id:
@@ -125,22 +116,16 @@ async def detect_cars(image: UploadFile = File(...)):
         
         raise HTTPException(status_code=500, detail=f"Detection error: {str(e)}")
 
-
+# ... (Các hàm get/classes và upload-only giữ nguyên) ...
 @router.get("/classes")
 async def get_available_classes():
-    """Lấy danh sách các class xe có thể nhận diện"""
     try:
         return detection_service.get_classes()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/upload-only")
 async def upload_image_only(image: UploadFile = File(...)):
-    """
-    Chỉ upload ảnh lên Cloudinary (không nhận diện)
-    Dùng cho testing hoặc upload manual
-    """
     if not image.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
     
